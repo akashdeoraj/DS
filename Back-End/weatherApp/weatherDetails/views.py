@@ -6,6 +6,8 @@ from rest_framework.response import Response
 import requests
 from django.http import JsonResponse
 from .models import *
+from datetime import date
+
 
 class getWeatherForcast(APIView):
     def get(self, request):
@@ -33,21 +35,24 @@ class getWeatherForcast(APIView):
         record_coordinates = coordinateWiseData.objects.filter(latitude=latitude, longitude=longitude).exists()
         if record_coordinates == True:
             record = coordinateWiseData.objects.get(latitude=latitude, longitude=longitude)
+            
+            if record.lastupdated < str(date.today()):
+                pass
+            else:
+                temp = getTemperatureByDay(day, record)
 
-            temp = getTemperatureByDay(day, record)
-
-            return JsonResponse({
-            "status": "OK",
-            "sCode": 200,
-            'Day' : day,
-            "Temperature" : temp
-        }, status=200)
+                return JsonResponse({
+                        "status": "OK",
+                        "sCode": 200,
+                        'Day' : day,
+                        "Temperature" : temp
+                        }, status=200)
 
         
         url_coordinate_info = "https://api.weather.gov/points/"+str(latitude)+","+str(longitude)
         request_coordinate_info = requests.get(url_coordinate_info) 
         request_coordinate_info_json = request_coordinate_info.json()
-        print(request_coordinate_info_json)
+        #print(request_coordinate_info_json)
         #print(request_coordinate_info_json["properties"]["gridId"])
         #print(request_coordinate_info_json["properties"]["gridX"])
         #print(request_coordinate_info_json["properties"]["gridY"])
@@ -56,7 +61,7 @@ class getWeatherForcast(APIView):
         url_forcast = request_coordinate_info_json["properties"]["forecast"]
         request_forcast_info = requests.get(url_forcast) 
         request_forcast_info_json = request_forcast_info.json()
-        print(request_forcast_info_json)
+        #print(request_forcast_info_json)
 
         coordinateWiseData.objects.create(gridId=str(request_coordinate_info_json["properties"]["gridId"]),
                                           gridx=str(request_coordinate_info_json["properties"]["gridX"]),
@@ -70,7 +75,8 @@ class getWeatherForcast(APIView):
         storeTempertatureByDay(request_forcast_info_json, record)
         temp = getTemperatureByDay(day, record)
         
-        record.lastupdated = ""
+        record.lastupdated = str(date.today())
+        record.save()
  
         return JsonResponse({
             "status": "OK",
